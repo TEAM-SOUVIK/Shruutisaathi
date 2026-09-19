@@ -4,9 +4,14 @@
 .android/
 build/
 app/build/
+.codex-tmp/
+.codex-tmp-javac/
 gradle-app.setting
 local.properties
+release-keystore.properties
+keystores/
 *.iml
+*.hprof
 
 # IDE files
 .idea/

@@ -18,7 +18,7 @@ class AudioCaptureController {
         val minBuffer = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
         if (minBuffer <= 0) return false
 
-        val bufferSize = minBuffer.coerceAtLeast(4096)
+        val bufferSize = maxOf(minBuffer, 4096)
         val audioRecord = try {
             AudioRecord(
                 MediaRecorder.AudioSource.VOICE_RECOGNITION,
@@ -82,7 +82,11 @@ class AudioCaptureController {
         if (!isActive()) return 0.0
         val read = record.read(buffer, 0, buffer.size)
         if (read <= 0) return 0.0
-        val squareSum = buffer.fold(0.0) { acc, sample -> acc + sample.toDouble() * sample }
+        var squareSum = 0.0
+        for (index in 0 until read) {
+            val sample = buffer[index].toDouble()
+            squareSum += sample * sample
+        }
         val rms = sqrt(squareSum / read)
         return rms / 32768.0
     }

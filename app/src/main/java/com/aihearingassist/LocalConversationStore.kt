@@ -17,4 +17,11 @@ class LocalConversationStore(private val context: Context) {
             .getString("transcript", "")
             ?: ""
     }
+
+    fun clearTranscript() {
+        context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            .edit()
+            .remove("transcript")
+            .apply()
+    }
 }

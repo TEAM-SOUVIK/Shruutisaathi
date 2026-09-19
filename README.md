@@ -1,153 +1,103 @@
-![Shruutisaathi banner](docs/assets/shruutisaathi-banner.png)
+# ShrutiSaathi v1.0
 
-# Shruutisaathi
+ShrutiSaathi is a local-first Android conversation-assistance application for deaf and hard-of-hearing users. It provides live captions, speaker-aware transcript organization, private conversation gist generation, and user-reviewed reply drafting.
 
-Shruutisaathi is a local-first conversation-assistance application for deaf and
-hard-of-hearing users. The Android application is the canonical product in this
-repository. It is currently a development alpha, not a medical device and not a
-production release.
+This repository is the active Android product and research prototype for the EMPOWER 2026 paper work. It is not a medical device, hearing aid, emergency system, or production-certified accessibility tool.
 
 ## Open the project
 
-Open this exact folder in Android Studio:
+Open this exact directory in Android Studio:
 
 ```text
 D:\Empower26\CodeX\AI-hearing-systems
 ```
 
-This repository root contains `settings.gradle.kts`. Do not open only the
-`app` directory.
+The correct root contains `settings.gradle.kts`, `gradlew.bat`, and the `app` module. Do not open only the `app` folder.
+
+## Current application scope
+
+- Kotlin Android application with Jetpack Compose UI.
+- App name: `ShrutiSaathi v1.0`.
+- Package: `com.aihearingassist`.
+- Minimum SDK: 24.
+- Compile SDK: 34.
+- Target SDK: 36.
+- Speech model flavors: `englishIn`, `englishUs`, `hindi`, and `full`.
+- ABI-specific APKs: `arm64-v8a` for real phones and `x86_64` for emulator.
+- Default workflow requires a one-time Private AI Pack installation before starting a session.
+- Offline Vosk speech recognition is the primary capture path.
+- Speaker setup supports predefined speaker names and experimental automatic local voice clustering.
+- Gist and reply drafting use a local LiteRT-LM model when installed, with a deterministic fallback only for failure recovery.
+- Transcripts are stored in app-private storage and excluded from Android backup configuration.
 
 ## Repository layout
 
 ```text
 AI-hearing-systems/
-├── app/                         Android application and bundled Vosk models
-├── docs/
-│   ├── ANDROID_STUDIO_TESTING.md
-│   ├── CLAIM_EVIDENCE_MATRIX.md
-│   ├── DEVELOPMENT_PLAN.md
-│   ├── PRODUCT_REQUIREMENTS.md
-│   └── reference/               Historical source documents
-├── legacy/web-prototype/        Non-production Flask/Whisper/BART prototype
+├── app/                         Android application source, tests, resources, and model assets
+├── docs/                        Product, testing, model, and research documentation
 ├── gradle/                      Gradle wrapper files
+├── legacy/                      Historical prototype material only
 ├── build.gradle.kts
 ├── settings.gradle.kts
-└── gradlew / gradlew.bat
+├── gradlew
+└── gradlew.bat
 ```
 
-## Current honest baseline
+## Important documentation
 
-- Kotlin and Jetpack Compose Android UI.
-- Offline Vosk recognition is selected by default.
-- The optional Android system speech service is labelled as potentially
-  network-backed.
-- A Session Setup page collects microphone consent and predefined participant
-  names before the main screen opens.
-- Captions support either manually selected participant names or Automatic AI
-  separation using the bundled Vosk x-vector speaker model and online cosine
-  clustering. Automatic AI requires at least two voice clusters. Automatic
-  labels follow first-heard voice order; they are not biometric identities.
-- Local transcript save, restore, clear, and Android share-sheet export.
-- An automatically refreshed, two-line conversation gist produced by an
-  on-device TextRank-style sentence-centrality and topic-salience baseline.
-- Deterministic on-device next-word suggestions that remain hidden until the
-  user types; partial-word completions replace the partial word.
-- A review-only generated-reply baseline that conservatively cleans the user's
-  intended words. It is not a local LLM and does not invent conversation facts.
-- A complete selectable transcript with labelled Save, Share, and Delete
-  actions, plus separate Reset Session and Stop Current Session controls.
-- In Offline mode, foreground microphone capture remains active while the user
-  reads or scrolls, types a response, updates the summary, generates/reviews a
-  reply, saves, or deletes committed transcript history.
-- Speaker selection is latched at the first partial result, so changing the
-  selected participant during speech affects the next utterance rather than
-  relabelling the utterance already in progress.
-- Generated replies record the transcript turn on which they were based and are
-  marked stale when a new caption arrives.
-- TTS does not pause recognition. A possible exact playback echo is retained and
-  marked for review; earphones are recommended while testing simultaneous reply
-  playback and nearby speech.
-- Typed replies are configured to select only an installed TTS voice that
-  reports that it does not require a network connection.
-- A lifecycle guard stops microphone capture when the app is no longer visible
-  and attempts to resume it when the active session returns to the foreground.
+- [Product requirements](docs/PRODUCT_REQUIREMENTS.md)
+- [Development plan](docs/DEVELOPMENT_PLAN.md)
+- [Android Studio and device testing](docs/ANDROID_STUDIO_TESTING.md)
+- [Local AI model setup](docs/LOCAL_LLM_SETUP.md)
+- [Speaker and gist methodology](docs/SPEAKER_AND_GIST_METHODOLOGY.md)
+- [Claim-evidence matrix](docs/CLAIM_EVIDENCE_MATRIX.md)
+- [Third-party model record](docs/THIRD_PARTY_MODELS.md)
+- [Play Store release checklist](docs/play-store/RELEASE_CHECKLIST_V1_0.md)
+- [Play Store listing draft](docs/play-store/STORE_LISTING.md)
+- [Privacy policy draft](docs/play-store/PRIVACY_POLICY_DRAFT.md)
+- [Data safety notes](docs/play-store/DATA_SAFETY_NOTES.md)
+- [Release signing guide](docs/play-store/RELEASE_SIGNING.md)
+- [v1.0 validation evidence](docs/play-store/VALIDATION_EVIDENCE_V1_0.md)
 
-The speaker-separation, TTS, and lifecycle safeguards remain device-unverified
-until the test checklist passes in LDPlayer and on a real phone.
+## Build commands
 
-## Android build variants
-
-| Variant | Bundled model | Recommended use |
-|---|---|---|
-| `englishUsDebug` | US English | First Android Studio and LDPlayer baseline |
-| `englishInDebug` | Indian English | Real-phone validation after the baseline |
-| `hindiDebug` | Hindi | Hindi and experimental Hinglish/Bhojpuri paths |
-| `fullDebug` | All three models | Size and multi-model testing only |
-
-The Indian-English recognizer source is configured for its model's 8-kHz input;
-the US-English and Hindi configurations use 16 kHz. Some devices may need an
-explicit resampling fallback, so every flavor still requires real-device model
-load, accuracy, and latency testing.
-
-## First build
-
-Use the configured JBR 21, Android SDK Platform 34, Build-Tools 36.0.0, and Android SDK
-Platform-Tools. Then select `englishUsDebug` in Android Studio's Build Variants
-window and run the `app` configuration.
-
-Command-line verification from the repository root:
+Use PowerShell from the repository root:
 
 ```powershell
-.\gradlew.bat testEnglishUsDebugUnitTest assembleEnglishUsDebug
+$env:JAVA_HOME = 'C:\Users\Souvik_IIIT K\.jdks\jbr-21.0.11'
+$env:JAVA_TOOL_OPTIONS = '-Djdk.net.unixdomain.tmpdir=D:\Empower26\CodeX\AI-hearing-systems\app\build\java-tmp'
+.\gradlew.bat :app:testEnglishInDebugUnitTest :app:assembleEnglishInDebug --console=plain
 ```
 
-Detailed setup and test steps are in
-[`docs/ANDROID_STUDIO_TESTING.md`](docs/ANDROID_STUDIO_TESTING.md).
+Generate a Play Store bundle:
 
-## Engineering documents
+```powershell
+.\gradlew.bat :app:bundleEnglishInRelease --console=plain
+```
 
-- [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md) defines the
-  product scope and acceptance requirements.
-- [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) defines development and
-  research gates.
-- [`docs/CLAIM_EVIDENCE_MATRIX.md`](docs/CLAIM_EVIDENCE_MATRIX.md) prevents paper
-  or product claims from getting ahead of the implemented evidence.
-- [`docs/SPEAKER_AND_GIST_METHODOLOGY.md`](docs/SPEAKER_AND_GIST_METHODOLOGY.md)
-  records the implemented research pipeline, parameters, limitations, and
-  evaluation plan.
-- [`docs/LOCAL_LLM_SETUP.md`](docs/LOCAL_LLM_SETUP.md) explains how to install
-  the required LiteRT-LM Gemma model used for local generative summaries.
+## Output locations
 
-## Known limitations
+Real-phone debug APK:
 
-- Automatic speaker separation is utterance-level online clustering, not
-  biometric identity. It has not yet been calibrated on the target phones or
-  evaluated with DER/JER, and simultaneous overlapping voices are not separated.
-- Continuous capture currently means foreground capture while ShrutiSaathi is
-  visible. Speech during Home, screen-lock, another app, a permission dialog, or
-  a share chooser is not guaranteed; an Android foreground capture service is
-  future work.
-- Android System recognition is best-effort because the provider can end and
-  restart sessions. The bundled Offline mode is the continuous-capture target.
-- Keyboard voice typing can compete for the microphone and is not part of the
-  continuous-capture guarantee.
-- No trained context-aware word-prediction model.
-- Local generative summaries require a separately installed `.litertlm` Gemma
-  model before the main session starts. TextRank remains only as an emergency
-  fallback if installed-model inference fails.
-- No local LLM reply model; the current generated reply is a deterministic
-  safety baseline for testing the workflow.
-- No validated application-level WER, DER, latency, memory, battery, thermal,
-  accessibility, or user-study results yet.
-- Transcripts currently use a simple single-session local store. Session history,
-  encryption, retention controls, and migrations are future work.
-- LDPlayer is suitable for UI and workflow checks, but microphone routing,
-  offline speech quality, TTS availability, battery, thermal behavior, and
-  accessibility must be tested on real phones.
+```text
+app\build\outputs\apk\englishIn\debug\app-englishIn-arm64-v8a-debug.apk
+```
 
-## Legacy web prototype
+Emulator debug APK:
 
-The Flask/Whisper/BART/gTTS experiment is isolated under
-[`legacy/web-prototype`](legacy/web-prototype). It is retained for historical
-reference only and must not be deployed or used as evidence for the Android app.
+```text
+app\build\outputs\apk\englishIn\debug\app-englishIn-x86_64-debug.apk
+```
+
+Release bundle:
+
+```text
+app\build\outputs\bundle\englishInRelease\app-englishIn-release.aab
+```
+
+## Research and release caution
+
+Only implemented and tested behavior should be claimed in the app, paper, or presentation. Current work still needs controlled evaluation for word error rate, diarization error rate, gist factuality, reply usefulness, latency, memory, battery, thermal behavior, accessibility, and real-user acceptability.
+
+Use `docs/CLAIM_EVIDENCE_MATRIX.md` before writing paper claims.

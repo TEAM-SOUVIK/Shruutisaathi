@@ -3,8 +3,10 @@ import whisper
 from transformers import pipeline
 from gtts import gTTS
 import os
+from pathlib import Path
 
-app = Flask(__name__, template_folder=".")
+BASE_DIR = Path(__file__).resolve().parent
+app = Flask(__name__, template_folder=str(BASE_DIR))
 
 # -------------------------------
 # LOAD MODELS ONCE
@@ -38,7 +40,7 @@ def index():
         if "audio" in request.files and request.files["audio"].filename != "":
 
             audio_file = request.files["audio"]
-            file_path = "temp_audio.mp3"
+            file_path = BASE_DIR / "temp_audio.mp3"
             audio_file.save(file_path)
 
             # Speech to text
@@ -67,13 +69,11 @@ def index():
             if user_text.strip() != "":
                 tts = gTTS(user_text)
 
-                if not os.path.exists("static"):
-                    os.makedirs("static")
-
-                audio_path = "static/reply.mp3"
-                tts.save(audio_path)
-
-                reply_audio = audio_path
+                static_dir = BASE_DIR / "static"
+                static_dir.mkdir(exist_ok=True)
+                audio_path = static_dir / "reply.mp3"
+                tts.save(str(audio_path))
+                reply_audio = "static/reply.mp3"
 
     return render_template(
         "index.html",

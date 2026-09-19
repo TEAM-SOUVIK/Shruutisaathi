@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -13,7 +14,7 @@ class SystemSpeechRecognizer {
     private data class Callbacks(
         val onReady: () -> Unit,
         val onPartial: (String) -> Unit,
-        val onResult: (String) -> Unit,
+        val onResult: (SpeechRecognitionResult) -> Unit,
         val onError: (String) -> Unit
     )
 
@@ -25,33 +26,37 @@ class SystemSpeechRecognizer {
     private var stopped = true
     private var paused = false
     private var lastCommittedText = ""
+    private var lastCommittedAtMillis = 0L
+    @Volatile private var sessionGeneration = 0L
 
     fun start(
         context: Context,
         language: SpeechLanguage,
         onReady: () -> Unit,
         onPartial: (String) -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (SpeechRecognitionResult) -> Unit,
         onError: (String) -> Unit
     ) {
         val applicationContext = context.applicationContext
         if (!SpeechRecognizer.isRecognitionAvailable(applicationContext)) {
-            onError("High Accuracy speech recognizer is not available on this phone. Try Offline mode.")
+            onError("Enhanced speech capture is not available on this device. Try Private mode.")
             return
         }
 
         stop()
+        val sessionId = sessionGeneration
         appContext = applicationContext
         this.language = language
         callbacks = Callbacks(onReady, onPartial, onResult, onError)
         stopped = false
         paused = false
         lastCommittedText = ""
+        lastCommittedAtMillis = 0L
 
         recognizer = SpeechRecognizer.createSpeechRecognizer(applicationContext).apply {
-            setRecognitionListener(listener)
+            setRecognitionListener(listener(sessionId))
         }
-        startListeningSession()
+        startListeningSession(sessionId)
     }
 
     fun pause() {
@@ -62,10 +67,11 @@ class SystemSpeechRecognizer {
     fun resume() {
         if (stopped) return
         paused = false
-        startListeningSession()
+        startListeningSession(sessionGeneration)
     }
 
     fun stop() {
+        sessionGeneration += 1
         stopped = true
         paused = false
         mainHandler.removeCallbacksAndMessages(null)
@@ -80,14 +86,18 @@ class SystemSpeechRecognizer {
         appContext = null
     }
 
-    private fun startListeningSession() {
+    private fun startListeningSession(sessionId: Long) {
         val activeRecognizer = recognizer ?: return
-        if (stopped || paused) return
+        if (!isSessionActive(sessionId)) return
 
         try {
             activeRecognizer.startListening(recognitionIntent())
         } catch (exception: RuntimeException) {
-            callbacks?.onError?.invoke("Could not start High Accuracy recognizer: ${exception.message ?: "initialization failed"}")
+            if (isSessionActive(sessionId)) {
+                callbacks?.onError?.invoke(
+                    "Could not start the system speech service: ${exception.message ?: "initialization failed"}"
+                )
+            }
         }
     }
 
@@ -104,16 +114,26 @@ class SystemSpeechRecognizer {
         }
     }
 
-    private fun scheduleRestart(delayMillis: Long = 220L) {
-        if (stopped || paused) return
-        mainHandler.postDelayed({ startListeningSession() }, delayMillis)
+    private fun scheduleRestart(sessionId: Long, delayMillis: Long = 220L) {
+        if (!isSessionActive(sessionId)) return
+        mainHandler.postDelayed(
+            { if (isSessionActive(sessionId)) startListeningSession(sessionId) },
+            delayMillis
+        )
     }
 
-    private fun commitBestResult(results: Bundle?) {
+    private fun commitBestResult(sessionId: Long, results: Bundle?) {
+        if (!isSessionActive(sessionId)) return
         val text = bestText(results) ?: return
-        if (text.equals(lastCommittedText, ignoreCase = true)) return
+        val now = SystemClock.elapsedRealtime()
+        val isImmediateDuplicate = text.equals(lastCommittedText, ignoreCase = true) &&
+            now - lastCommittedAtMillis < DUPLICATE_WINDOW_MILLIS
+        if (isImmediateDuplicate) return
         lastCommittedText = text
-        callbacks?.onResult?.invoke(text)
+        lastCommittedAtMillis = now
+        if (isSessionActive(sessionId)) {
+            callbacks?.onResult?.invoke(SpeechRecognitionResult(text = text))
+        }
     }
 
     private fun bestText(results: Bundle?): String? {
@@ -147,9 +167,11 @@ class SystemSpeechRecognizer {
             error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
     }
 
-    private val listener = object : RecognitionListener {
+    private fun listener(sessionId: Long) = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-            callbacks?.onReady?.invoke()
+            if (isSessionActive(sessionId)) {
+                callbacks?.onReady?.invoke()
+            }
         }
 
         override fun onBeginningOfSpeech() = Unit
@@ -161,26 +183,36 @@ class SystemSpeechRecognizer {
         override fun onEndOfSpeech() = Unit
 
         override fun onError(error: Int) {
-            if (stopped || paused) return
+            if (!isSessionActive(sessionId)) return
             if (shouldRestart(error)) {
                 if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                     callbacks?.onPartial?.invoke("")
                 }
-                scheduleRestart()
+                scheduleRestart(sessionId)
             } else {
-                callbacks?.onError?.invoke("High Accuracy recognizer error: ${errorMessage(error)}")
+                callbacks?.onError?.invoke("System speech service error: ${errorMessage(error)}")
             }
         }
 
         override fun onResults(results: Bundle?) {
-            commitBestResult(results)
-            scheduleRestart()
+            if (!isSessionActive(sessionId)) return
+            commitBestResult(sessionId, results)
+            scheduleRestart(sessionId)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
+            if (!isSessionActive(sessionId)) return
             bestText(partialResults)?.let { callbacks?.onPartial?.invoke(it) }
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun isSessionActive(sessionId: Long): Boolean {
+        return sessionId == sessionGeneration && !stopped && !paused
+    }
+
+    private companion object {
+        const val DUPLICATE_WINDOW_MILLIS = 750L
     }
 }
